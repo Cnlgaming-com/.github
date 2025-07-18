@@ -1,0 +1,30 @@
+name: 🔀 CS - Rebase
+description: This action rebase the specific branch into the target branch
+inputs:
+  GH_TOKEN:
+    description: GitHub token for authentication
+    required: true
+  FROM:
+    description: The branch to rebase from
+    required: true
+  TO:
+    description: The branch to rebase into
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Git
+      shell: bash
+      run: |
+        git config user.name "actions@github.com"
+        git config user.email "${GITHUB_ACTOR}"
+
+    - name: Pull latest changes then rebase
+      shell: bash
+      run: |
+        git fetch origin ${{ inputs.FROM }}
+        git fetch origin ${{ inputs.TO }}
+        git checkout ${{ inputs.TO }}
+        git reset --hard origin/${{ inputs.TO }}
+        git rebase --onto origin/${{ inputs.FROM }} origin/${{ inputs.TO }} ${{ inputs.TO }}
+        git push origin ${{ inputs.TO }} --force-with-lease

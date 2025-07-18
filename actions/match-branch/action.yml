@@ -1,0 +1,17 @@
+name: 🔍 CS - Match Branch
+description: This action checks if the current branch matches the target branch
+inputs:
+  BRANCH:
+    description: Branch to check against
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Check if branch matches the target branch
+      shell: bash
+      run: |
+        if [ "${GITHUB_REF##*/}" != "${{ inputs.BRANCH }}" ]; then
+          echo "Not on '${{ inputs.BRANCH }}' branch. Skipping.";
+          exit 0
+        fi
+        echo "On '${{ inputs.BRANCH }}' branch. Continuing."

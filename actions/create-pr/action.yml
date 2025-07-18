@@ -1,0 +1,24 @@
+name: 📜 CS - Create PR
+description: This action creates a pull request from the source branch to the target branch
+inputs:
+  GH_TOKEN:
+    description: GitHub token for authentication
+    required: true
+  FROM:
+    description: The source branch
+    required: true
+  TO:
+    description: The target branch
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Create Pull Request
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.GH_TOKEN }}
+      run: |
+        gh pr create --base ${{ inputs.TO }} --head ${{ inputs.FROM }} --title "chore(CI): sync from ${{ inputs.FROM }} to ${{ inputs.TO }}" --body "This PR sync the branch ${{ inputs.TO }} to the latest changes from ${{ inputs.FROM }}."

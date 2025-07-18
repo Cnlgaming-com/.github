@@ -1,0 +1,27 @@
+name: 🔧 CS - Env & Deps
+description: This action sets up the environment and installs dependencies for the CI pipeline.
+runs:
+  using: "composite"
+  steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22.15.0"
+
+    - name: Setup environment variables
+      shell: bash
+      run: |
+        if [ -f ".env.example" ]; then
+          cp .env.example .env
+        else
+          echo ".env.example not found. Skipping."
+        fi
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --ignore-scripts
