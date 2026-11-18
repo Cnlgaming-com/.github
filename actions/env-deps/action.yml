@@ -6,8 +6,8 @@
 # tests the deployed version, and .env.example credential warnings name only the line
 # number and key, never the value.
 #
-# Usage (pin to a commit SHA):
-#   - uses: Cnlgaming-com/.github/actions/env-deps@<sha>
+# Usage (callers reference @main, so a merge here applies to all their next CI runs):
+#   - uses: Cnlgaming-com/.github/actions/env-deps@main
 name: 🔧 Env & Deps
 description: Sets up pnpm and Node.js, creates .env from .env.example and installs dependencies.
 inputs:

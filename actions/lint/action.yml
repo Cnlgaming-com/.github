@@ -5,8 +5,8 @@
 # the lint script is an input: fe/admin keep `lint`; be passes `check:ci-local` (ESLint
 # only), because `cyberskill lint` also runs tsc, which be's typecheck job already does.
 #
-# Usage (pin to a commit SHA):
-#   - uses: Cnlgaming-com/.github/actions/lint@<sha>
+# Usage (callers reference @main, so a merge here applies to all their next CI runs):
+#   - uses: Cnlgaming-com/.github/actions/lint@main
 #     with:
 #       LINT_SCRIPT: check:ci-local   # optional, default "lint"
 name: 🛠️ Lint
