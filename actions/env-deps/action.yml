@@ -1,27 +1,91 @@
-name: 🔧 CS - Env & Deps
-description: This action sets up the environment and installs dependencies for the CI pipeline.
+---
+# Shared CI setup for cnlgaming-be, cnlgaming-fe and cnlgaming-admin.
+# Based on cyberskill-official/.github actions/env-deps (773847a, 2026-11-12), which these
+# repos used until it became private to this organisation on 2026-11-17. Changes from it:
+# pnpm only (every repo has a pnpm lockfile), versions chosen by the caller, and
+# .env.example credential warnings name only the line number and key, never the value.
+#
+# Versions: pass either an exact version or a file in the calling repo (checked out
+# before this action runs). An exact version wins over its file.
+#   - pnpm: PNPM_VERSION, or "packageManager" in PACKAGE_JSON_FILE (default package.json).
+#     If both are set they must match, or pnpm/action-setup fails.
+#   - Node: NODE_VERSION, or NODE_VERSION_FILE (default .nvmrc).
+#
+# Usage (callers reference @main, so a merge here applies to all their next CI runs):
+#   - uses: actions/checkout@...
+#   - uses: Cnlgaming-com/.github/actions/env-deps@main
+#     with:
+#       NODE_VERSION_FILE: .nvmrc          # or NODE_VERSION: "24.22.1"
+#       PACKAGE_JSON_FILE: package.json    # or PNPM_VERSION: "10.29.3"
+name: 🔧 Env & Deps
+description: Sets up pnpm and Node.js, creates .env from .env.example and installs dependencies.
+inputs:
+  NODE_VERSION:
+    description: Exact Node.js version. Empty (default) reads NODE_VERSION_FILE.
+    required: false
+    default: ""
+  NODE_VERSION_FILE:
+    description: File in the calling repo holding the Node.js version, used when NODE_VERSION is empty.
+    required: false
+    default: ".nvmrc"
+  PNPM_VERSION:
+    description: Exact pnpm version. Empty (default) reads "packageManager" from PACKAGE_JSON_FILE.
+    required: false
+    default: ""
+  PACKAGE_JSON_FILE:
+    description: package.json in the calling repo whose "packageManager" sets pnpm when PNPM_VERSION is empty.
+    required: false
+    default: "package.json"
 runs:
   using: "composite"
   steps:
     - name: Setup pnpm
-      uses: pnpm/action-setup@v4
+      uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320  # v4.4.0
       with:
-        version: 10
+        version: ${{ inputs.PNPM_VERSION }}
+        package_json_file: ${{ inputs.PACKAGE_JSON_FILE }}
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
       with:
-        node-version: "22.15.0"
+        # node-version wins when set; otherwise the version comes from the file.
+        node-version: ${{ inputs.NODE_VERSION }}
+        node-version-file: ${{ inputs.NODE_VERSION_FILE }}
+        cache: pnpm
 
     - name: Setup environment variables
       shell: bash
       run: |
+        set -euo pipefail
         if [ -f ".env.example" ]; then
+          SECRET_PATTERNS='(sk_live_[0-9a-zA-Z]{20,}|sk_test_[0-9a-zA-Z]{20,}|ghp_[0-9a-zA-Z]{36}|gho_[0-9a-zA-Z]{36}|github_pat_[0-9a-zA-Z]{22}_[0-9a-zA-Z]{59}|AKIA[0-9A-Z]{16}|xoxb-[0-9a-zA-Z-]+|xoxp-[0-9a-zA-Z-]+|SG\.[0-9a-zA-Z_-]{22}\.[0-9a-zA-Z_-]{43}|sk-[0-9a-zA-Z]{32,}|eyJ[0-9a-zA-Z_-]{10,}\.eyJ[0-9a-zA-Z_-]{10,}|sk-ant-[0-9a-zA-Z_-]{80,}|AIza[0-9A-Za-z_-]{35}|DefaultEndpointsProtocol=https;AccountName=[^;]+;AccountKey=[A-Za-z0-9+/=]{44,}|AC[0-9a-f]{32}|[0-9a-f]{32,}-us[0-9]+)'
+          CREDENTIAL_KV='(password|secret|private_key|api_key|access_key)=.+'
+          PLACEHOLDER_EXCLUDES='(changeme|your[-_]|xxx|placeholder|example|TODO|REPLACE)'
+          if grep -qEi "$SECRET_PATTERNS" .env.example 2>/dev/null; then
+            # Line numbers only: printing the match would copy the secret into the log.
+            lines=$(grep -nEi "$SECRET_PATTERNS" .env.example | cut -d: -f1 | paste -sd, -)
+            echo "::error file=.env.example::.env.example appears to contain real secrets (lines: $lines). Remove them before committing."
+            exit 1
+          fi
+          HAS_REAL_CREDS=false
+          while IFS= read -r numbered; do
+            line_no="${numbered%%:*}"
+            content="${numbered#*:}"
+            if ! grep -qEi "$PLACEHOLDER_EXCLUDES" <<< "$content"; then
+              HAS_REAL_CREDS=true
+              key="${content%%=*}"
+              echo "::warning file=.env.example,line=$line_no::Credential-like value for '$key' does not look like a placeholder."
+            fi
+          done < <(grep -nEi "$CREDENTIAL_KV" .env.example 2>/dev/null || true)
+          if [ "$HAS_REAL_CREDS" = "true" ]; then
+            echo "::warning::.env.example contains credential-like key=value pairs that don't look like placeholders. Verify they are safe."
+          fi
           cp .env.example .env
+          echo "✅ Copied .env.example → .env (no secret patterns detected)."
         else
           echo ".env.example not found. Skipping."
         fi
 
     - name: Install dependencies
       shell: bash
-      run: pnpm install --ignore-scripts
+      run: pnpm install --frozen-lockfile
