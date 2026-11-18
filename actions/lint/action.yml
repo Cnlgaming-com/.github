@@ -1,0 +1,38 @@
+---
+# Shared lint step for cnlgaming-be, cnlgaming-fe and cnlgaming-admin. Run env-deps first.
+# Based on cyberskill-official/.github actions/lint + lint-yaml (773847a, 2026-11-12).
+# The YAML lint runs inline with the config next to this file (no nested action ref), and
+# the lint script is an input: fe/admin keep `lint`; be passes `check:ci-local` (ESLint
+# only), because `cyberskill lint` also runs tsc, which be's typecheck job already does.
+#
+# Usage (pin to a commit SHA):
+#   - uses: Cnlgaming-com/.github/actions/lint@<sha>
+#     with:
+#       LINT_SCRIPT: check:ci-local   # optional, default "lint"
+name: 🛠️ Lint
+description: Lints YAML files and runs the project's lint script. Run env-deps first.
+inputs:
+  SKIP_YAML_LINT:
+    description: "Skip the YAML lint step (default: false)"
+    required: false
+    default: "false"
+  LINT_SCRIPT:
+    description: package.json script that lints the project
+    required: false
+    default: "lint"
+runs:
+  using: "composite"
+  steps:
+    - name: Lint YAML
+      if: ${{ inputs.SKIP_YAML_LINT != 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        # pipx is pre-installed on GitHub-hosted runners.
+        pipx run yamllint==1.38.0 -c "$GITHUB_ACTION_PATH/.yamllint" .
+
+    - name: Run lint
+      shell: bash
+      env:
+        LINT_SCRIPT: ${{ inputs.LINT_SCRIPT }}
+      run: pnpm run "$LINT_SCRIPT"
